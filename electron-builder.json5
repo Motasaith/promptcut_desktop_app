@@ -1,0 +1,113 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.promptcut.studio",
+  "asar": true,
+  // .node binaries can't be dlopen'd from inside an asar — must live unpacked.
+  "asarUnpack": [
+    "**/*.node"
+  ],
+  "productName": "PromptCut Studio",
+  // Fetch the auto-caption model + ORT wasm into caption-assets/ before packaging (idempotent).
+  "beforePack": "scripts/before-pack.cjs",
+  // Copies the Stickman studio (studio-bundle/, with node_modules) into resources/studio.
+  "afterPack": "scripts/after-pack.cjs",
+  "npmRebuild": true,
+  // sharp ships ABI-stable (napi) prebuilt binaries with bundled libvips. Building it from source
+  // needs a system libvips we don't provide and breaks on CI/local ("vips-cpp.42 not found"), so we
+  // let electron-builder use the prebuilt instead of recompiling.
+  "buildDependenciesFromSource": false,
+  "compression": "normal",
+  "directories": {
+    "output": "release/${version}"
+  },
+  "files": [
+    "dist",
+    "dist-electron",
+    "!*.png",
+    "!preview*.png",
+    "!*.md",
+    "!README.md",
+    "!CONTRIBUTING.md",
+    "!LICENSE"
+  ],
+  // Asset layout contract: "wallpapers/" and "cursors/" under resourcesPath must
+  // align with assetBaseDir in electron/preload.ts (packaged branch).
+  "extraResources": [
+    {
+      "from": "public/wallpapers",
+      "to": "wallpapers"
+    },
+    {
+      "from": "public/cursors",
+      "to": "cursors"
+    },
+    {
+      "from": "caption-assets",
+      "to": "caption-assets"
+    },
+    // AGPL-3.0: the license, notices and credits travel with every copy.
+    { "from": "LICENSE", "to": "LICENSE" },
+    { "from": "NOTICE", "to": "NOTICE" },
+    { "from": "THIRD_PARTY_NOTICES.md", "to": "THIRD_PARTY_NOTICES.md" }
+  ],
+
+  "mac": {
+    "notarize": false,
+    "hardenedRuntime": true,
+    "entitlements": "macos.entitlements",
+    "entitlementsInherit": "macos.entitlements",
+    "target": [
+      {
+        "target": "dmg",
+        "arch": ["x64", "arm64"]
+      }
+    ],
+    "icon": "icons/icons/png/1024x1024.png",
+    "artifactName": "${productName}-Mac-${arch}-${version}-Installer.${ext}",
+    "extraResources": [
+      {
+        "from": "electron/native/bin",
+        "to": "electron/native/bin",
+        "filter": ["darwin-*/*"]
+      }
+    ],
+    "extendInfo": {
+      "NSAudioCaptureUsageDescription": "PromptCut Studio needs audio capture permission to record system audio.",
+      "NSMicrophoneUsageDescription": "PromptCut Studio needs microphone access to record voice audio.",
+      "NSCameraUsageDescription": "PromptCut Studio needs camera access to record webcam video.",
+      "NSScreenCaptureUsageDescription": "PromptCut Studio needs screen recording permission to detect and capture windows.",
+      "NSCameraUseContinuityCameraDeviceType": true
+    }
+  },
+  "linux": {
+    "target": [
+      "AppImage",
+      "deb",
+      "pacman"
+    ],
+    "icon": "icons/icons/png",
+    "artifactName": "${productName}-Linux-${version}.${ext}",
+    "category": "AudioVideo"
+  },
+  "win": {
+    "target": [
+      "nsis"
+    ],
+    "icon": "icons/icons/win/icon.ico",
+    // No code-signing certificate yet: skip the signing tools (their download needs admin
+    // symlink rights on Windows). Add a certificate here before wide distribution.
+    "signAndEditExecutable": false,
+    "extraResources": [
+      {
+        "from": "electron/native/bin",
+        "to": "electron/native/bin",
+        "filter": ["win32-*/*"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}
